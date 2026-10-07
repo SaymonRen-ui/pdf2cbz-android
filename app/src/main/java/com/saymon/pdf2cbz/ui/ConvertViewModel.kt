@@ -97,7 +97,10 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                     val stem = f.name.removeSuffix(".pdf").removeSuffix(".PDF")
                     val values = ContentValues().apply {
                         put(MediaStore.Downloads.DISPLAY_NAME, "$stem.cbz")
-                        put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+                        // MIME комиксов: с application/zip система дописывала
+                        // лишний .zip -> test.cbz.zip
+                        put(MediaStore.Downloads.MIME_TYPE,
+                            "application/vnd.comicbook+zip")
                         if (Build.VERSION.SDK_INT >= 29) {
                             put(MediaStore.Downloads.RELATIVE_PATH,
                                 Environment.DIRECTORY_DOWNLOADS)
