@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -18,6 +19,7 @@ import com.saymon.pdf2cbz.core.convert.JobCancelled
 import com.saymon.pdf2cbz.core.convert.convertPdf
 import com.saymon.pdf2cbz.core.convert.etaText
 import com.saymon.pdf2cbz.core.convert.pageCount
+import com.saymon.pdf2cbz.data.SettingsStore
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,17 +28,29 @@ import kotlinx.coroutines.withContext
 data class InFile(val uri: Uri, val name: String, val pages: Int)
 
 class ConvertViewModel(app: Application) : AndroidViewModel(app) {
+    private val settings = SettingsStore(app)
     val files = mutableStateListOf<InFile>()
+    val doneUris = mutableStateListOf<String>()      // готовые за этот запуск
+    val failed = mutableStateMapOf<String, String>() // uri -> ошибка
     var quality by mutableIntStateOf(90)
     var dpi by mutableIntStateOf(150)
+    var theme by mutableIntStateOf(settings.theme)
+    var showSettings by mutableStateOf(false)
     var running by mutableStateOf(false)
     var status by mutableStateOf("Добавьте PDF кнопкой выше.")
     var curFile by mutableStateOf("")
     var fileDone by mutableIntStateOf(0)
     var fileTotal by mutableIntStateOf(0)
     var filesDone by mutableIntStateOf(0)
+    var pagesAllDone by mutableIntStateOf(0)
+    var pagesAllTotal by mutableIntStateOf(0)
     private val cancelled = AtomicBoolean(false)
     private val fileTimes = mutableListOf<Long>()
+
+    fun chooseTheme(v: Int) {
+        theme = v
+        settings.theme = v
+    }
 
     fun addUris(uris: List<Uri>) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -80,13 +94,18 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
         running = true
         cancelled.set(false)
         filesDone = 0
+        pagesAllDone = 0
         fileTimes.clear()
+        doneUris.clear()
+        failed.clear()
         viewModelScope.launch(Dispatchers.IO) {
             val ctx = getApplication<Application>()
             val res = ctx.contentResolver
-            val totalFiles = files.size
             // Снимок очереди: список под нами может меняться только когда не бежим
             val queue = files.toList()
+            val totalFiles = queue.size
+            pagesAllTotal = queue.sumOf { it.pages }
+            var pagesBefore = 0
             for ((fi, f) in queue.withIndex()) {
                 if (cancelled.get()) break
                 curFile = f.name
@@ -113,24 +132,31 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                         convertPdf(res, f.uri, out, dpi, quality, cancelled) { d, t ->
                             fileDone = d
                             fileTotal = t
+                            pagesAllDone = pagesBefore + d
                         }
                     } ?: throw IllegalStateException("Не открылся выходной файл")
                     fileTimes.add(System.currentTimeMillis() - t0)
                     filesDone = fi + 1
+                    pagesBefore += f.pages
+                    pagesAllDone = pagesBefore
+                    doneUris.add(f.uri.toString())
                 } catch (e: JobCancelled) {
                     status = "Остановлено на «${f.name}»."
                     break
                 } catch (e: Exception) {
-                    status = "«${f.name}»: не вышло: ${e.message}"
-                    break
+                    failed[f.uri.toString()] = e.message ?: "ошибка"
+                    status = "«${f.name}»: не вышло: ${e.message} (остальные продолжу)"
                 }
             }
             withContext(Dispatchers.Main) {
-                if (!cancelled.get() && filesDone == totalFiles) {
+                if (!cancelled.get() && failed.isEmpty() && filesDone == totalFiles) {
                     status = "Готово: файлов $totalFiles в Загрузках."
                     files.clear()
+                    doneUris.clear()
                 } else if (!cancelled.get()) {
-                    status += " " + etaText(fileTimes, filesDone, totalFiles)
+                    status = "Готово частично: ok ${doneUris.size} из $totalFiles, " +
+                        "ошибок ${failed.size}. " +
+                        etaText(fileTimes, filesDone, totalFiles)
                 }
             }
             running = false

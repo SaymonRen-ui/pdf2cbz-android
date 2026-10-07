@@ -7,9 +7,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 @Composable
-fun Pdf2CbzTheme(content: @Composable () -> Unit) {
+fun Pdf2CbzTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
+        colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(),
         content = content
     )
 }

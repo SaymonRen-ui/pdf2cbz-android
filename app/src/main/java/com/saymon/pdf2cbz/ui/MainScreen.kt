@@ -1,6 +1,5 @@
 package com.saymon.pdf2cbz.ui
 
-import android.app.Application
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -25,25 +25,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
-    val ctx = LocalContext.current
-    val vm: ConvertViewModel = viewModel(
-        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory
-            .getInstance(ctx.applicationContext as Application)
-    )
+fun MainScreen(vm: ConvertViewModel) {
     val pick = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris -> vm.addUris(uris) }
+    // Пока идёт конвертация — не гасить экран
+    val view = LocalView.current
+    LaunchedEffect(vm.running) { view.keepScreenOn = vm.running }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("PDF2CBZ") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("PDF2CBZ") },
+                actions = { TextButton(onClick = { vm.showSettings = true }) { Text("⚙") } }
+            )
+        }
     ) { pad ->
         Column(
             Modifier.fillMaxSize().padding(pad).padding(16.dp),
@@ -58,14 +61,27 @@ fun MainScreen() {
             LazyColumn(Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(vm.files, key = { it.uri.toString() }) { f ->
+                    val key = f.uri.toString()
                     Card(Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
                                 Text(f.name)
-                                Text("стр. ${f.pages}",
-                                    color = androidx.compose.material3.MaterialTheme
-                                        .colorScheme.onSurfaceVariant)
+                                val sub = when {
+                                    vm.failed.containsKey(key) ->
+                                        "✗ ${vm.failed[key]}"
+                                    vm.doneUris.contains(key) -> "✓ готов"
+                                    vm.running && vm.curFile == f.name ->
+                                        "… ${vm.fileDone}/${vm.fileTotal}"
+                                    else -> "стр. ${f.pages}"
+                                }
+                                Text(sub, color = when {
+                                    vm.failed.containsKey(key) ->
+                                        MaterialTheme.colorScheme.error
+                                    vm.doneUris.contains(key) ->
+                                        MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                })
                             }
                             if (!vm.running) {
                                 TextButton(onClick = { vm.removeFile(f) }) { Text("✕") }
@@ -85,11 +101,20 @@ fun MainScreen() {
                 }
             }
             if (vm.running) {
+                // Общий прогресс по всем страницам очереди
+                LinearProgressIndicator(
+                    progress = {
+                        if (vm.pagesAllTotal > 0)
+                            vm.pagesAllDone.toFloat() / vm.pagesAllTotal else 0f
+                    },
+                    modifier = Modifier.fillMaxWidth())
+                Text("Всего: ${vm.pagesAllDone}/${vm.pagesAllTotal} стр. · " +
+                    "файлов ${vm.filesDone}/${vm.files.size}")
                 Text(vm.curFile)
                 LinearProgressIndicator(
                     progress = { if (vm.fileTotal > 0) vm.fileDone.toFloat() / vm.fileTotal else 0f },
                     modifier = Modifier.fillMaxWidth())
-                Text("${vm.fileDone}/${vm.fileTotal} стр. · файлов ${vm.filesDone}/${vm.files.size}")
+                Text("${vm.fileDone}/${vm.fileTotal} стр. текущего файла")
                 Button(onClick = { vm.cancel() }, modifier = Modifier.fillMaxWidth()) {
                     Text("✖ Отмена")
                 }
