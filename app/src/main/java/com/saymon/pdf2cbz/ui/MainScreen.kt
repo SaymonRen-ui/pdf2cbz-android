@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -219,7 +220,11 @@ private fun ParamsCard(vm: ConvertViewModel) {
             Slider(
                 value = vm.quality.toFloat(),
                 onValueChange = { vm.quality = it.toInt() },
-                valueRange = 1f..100f, enabled = !vm.running)
+                valueRange = 1f..100f, enabled = !vm.running,
+                colors = SliderDefaults.colors(
+                    inactiveTrackColor =
+                        MaterialTheme.colorScheme.outlineVariant,
+                ))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("DPI:", fontSize = 15.sp)
