@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -225,7 +226,13 @@ private fun ParamsCard(vm: ConvertViewModel) {
                 for (d in listOf(100, 150, 200, 300)) {
                     FilterChip(selected = vm.dpi == d,
                         onClick = { vm.dpi = d },
-                        enabled = !vm.running, label = { Text("$d") })
+                        enabled = !vm.running, label = { Text("$d") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor =
+                                MaterialTheme.colorScheme.primary,
+                            selectedLabelColor =
+                                MaterialTheme.colorScheme.onPrimary,
+                        ))
                 }
             }
         }
