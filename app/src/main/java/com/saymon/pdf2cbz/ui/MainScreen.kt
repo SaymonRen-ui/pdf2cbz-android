@@ -38,6 +38,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -166,7 +167,7 @@ private fun FileList(vm: ConvertViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(8.dp))
             Text("Пока пусто",
                 style = MaterialTheme.typography.titleMedium)
-            Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz сохраняются в выбранную папку.",
+                Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz сохраняются в выбранную папку (смена — в ⚙).",
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -270,8 +271,9 @@ private fun ActionBlock(vm: ConvertViewModel) {
             modifier = Modifier.fillMaxWidth()) {
             Text("Конвертировать в CBZ")
         }
-        Text("Папка: ${vm.outputLabel}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { vm.showSettings = true }) {
+                    Text("Папка: ${vm.outputLabel}")
+                }
     }
     Text(vm.status)
 }
