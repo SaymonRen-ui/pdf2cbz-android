@@ -19,8 +19,9 @@ import com.saymon.pdf2cbz.core.convert.JobCancelled
 import com.saymon.pdf2cbz.core.convert.convertPdf
 import com.saymon.pdf2cbz.core.convert.etaText
 import com.saymon.pdf2cbz.core.convert.pageCount
+import com.saymon.pdf2cbz.ConvertControl
+import com.saymon.pdf2cbz.ConvertService
 import com.saymon.pdf2cbz.data.SettingsStore
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,7 +46,6 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
     var filesDone by mutableIntStateOf(0)
     var pagesAllDone by mutableIntStateOf(0)
     var pagesAllTotal by mutableIntStateOf(0)
-    private val cancelled = AtomicBoolean(false)
     private val fileTimes = mutableListOf<Long>()
 
     fun chooseTheme(v: Int) {
@@ -121,13 +121,13 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancel() {
-        cancelled.set(true)
+        ConvertControl.cancelled.set(true)
     }
 
     fun start() {
         if (running || files.isEmpty()) return
         running = true
-        cancelled.set(false)
+        ConvertControl.cancelled.set(false)
         filesDone = 0
         pagesAllDone = 0
         fileTimes.clear()
@@ -136,13 +136,14 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val ctx = getApplication<Application>()
             val res = ctx.contentResolver
+            ConvertService.cmd(ctx, ConvertService.ACTION_START)
             // Снимок очереди: список под нами может меняться только когда не бежим
             val queue = files.toList()
             val totalFiles = queue.size
             pagesAllTotal = queue.sumOf { it.pages }
             var pagesBefore = 0
             for ((fi, f) in queue.withIndex()) {
-                if (cancelled.get()) break
+                if (ConvertControl.cancelled.get()) break
                 curFile = f.name
                 fileDone = 0
                 fileTotal = f.pages
@@ -159,7 +160,7 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                             "application/vnd.comicbook+zip", "$stem.cbz")
                             ?: throw IllegalStateException("Не создался файл")
                         res.openOutputStream(doc.uri)?.use { out ->
-                            convertPdf(res, f.uri, out, dpi, quality, cancelled) { d, t ->
+                            convertPdf(res, f.uri, out, dpi, quality, ConvertControl.cancelled) { d, t ->
                                 fileDone = d
                                 fileTotal = t
                                 pagesAllDone = pagesBefore + d
@@ -182,10 +183,15 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                         MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                         ?: throw IllegalStateException("Нет доступа к Загрузкам")
                     res.openOutputStream(outUri)?.use { out ->
-                        convertPdf(res, f.uri, out, dpi, quality, cancelled) { d, t ->
+                        convertPdf(res, f.uri, out, dpi, quality, ConvertControl.cancelled) { d, t ->
                             fileDone = d
                             fileTotal = t
                             pagesAllDone = pagesBefore + d
+                            // Шторку дёргаем не чаще, чем раз в 5 страниц
+                            if (pagesAllDone % 5 == 0 || d == t) {
+                                ConvertService.cmd(ctx, ConvertService.ACTION_UPDATE,
+                                    pagesAllDone, pagesAllTotal, f.name)
+                            }
                         }
                     } ?: throw IllegalStateException("Не открылся выходной файл")
                     } // else: Загрузки через MediaStore
@@ -203,16 +209,17 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             withContext(Dispatchers.Main) {
-                if (!cancelled.get() && failed.isEmpty() && filesDone == totalFiles) {
+                if (!ConvertControl.cancelled.get() && failed.isEmpty() && filesDone == totalFiles) {
                     status = "Готово: файлов $totalFiles в папке «$outputLabel»."
                     files.clear()
                     doneUris.clear()
-                } else if (!cancelled.get()) {
+                } else if (!ConvertControl.cancelled.get()) {
                     status = "Готово частично: ok ${doneUris.size} из $totalFiles, " +
                         "ошибок ${failed.size}. " +
                         etaText(fileTimes, filesDone, totalFiles)
                 }
             }
+            ConvertService.cmd(ctx, ConvertService.ACTION_STOP)
             running = false
         }
     }
