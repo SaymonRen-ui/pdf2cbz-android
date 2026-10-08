@@ -36,6 +36,7 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
     var dpi by mutableIntStateOf(150)
     var theme by mutableIntStateOf(settings.theme)
     var showSettings by mutableStateOf(false)
+    var outputLabel by mutableStateOf("Загрузки")
     var running by mutableStateOf(false)
     var status by mutableStateOf("Добавьте PDF кнопкой выше.")
     var curFile by mutableStateOf("")
@@ -50,6 +51,40 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
     fun chooseTheme(v: Int) {
         theme = v
         settings.theme = v
+    }
+
+    init {
+        refreshOutputLabel()
+    }
+
+    fun refreshOutputLabel() {
+        val uri = settings.outputDir?.let { Uri.parse(it) }
+        outputLabel = if (uri != null) {
+            try {
+                androidx.documentfile.provider.DocumentFile
+                    .fromTreeUri(getApplication(), uri)?.name ?: "Выбранная папка"
+            } catch (_: Exception) {
+                "Выбранная папка"
+            }
+        } else "Загрузки"
+    }
+
+    fun setOutputDir(uri: Uri) {
+        try {
+            getApplication<Application>().contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        } catch (_: Exception) {
+        }
+        settings.outputDir = uri.toString()
+        refreshOutputLabel()
+        if (!running) status = "Папка для CBZ: $outputLabel."
+    }
+
+    fun clearOutputDir() {
+        settings.outputDir = null
+        refreshOutputLabel()
+        if (!running) status = "Папка для CBZ: Загрузки."
     }
 
     fun addUris(uris: List<Uri>) {
@@ -114,7 +149,25 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                 val t0 = System.currentTimeMillis()
                 try {
                     val stem = f.name.removeSuffix(".pdf").removeSuffix(".PDF")
-                    val values = ContentValues().apply {
+                    val treeUri = settings.outputDir?.let { Uri.parse(it) }
+                    if (treeUri != null) {
+                        // Выбранная папка (SAF): создаём файл в ней
+                        val tree = androidx.documentfile.provider.DocumentFile
+                            .fromTreeUri(ctx, treeUri)
+                            ?: throw IllegalStateException("Папка недоступна")
+                        val doc = tree.createFile(
+                            "application/vnd.comicbook+zip", "$stem.cbz")
+                            ?: throw IllegalStateException("Не создался файл")
+                        res.openOutputStream(doc.uri)?.use { out ->
+                            convertPdf(res, f.uri, out, dpi, quality, cancelled) { d, t ->
+                                fileDone = d
+                                fileTotal = t
+                                pagesAllDone = pagesBefore + d
+                            }
+                        } ?: throw IllegalStateException("Не открылся выходной файл")
+                    } else {
+                        // Загрузки через MediaStore
+                        val values = ContentValues().apply {
                         put(MediaStore.Downloads.DISPLAY_NAME, "$stem.cbz")
                         // MIME комиксов: с application/zip система дописывала
                         // лишний .zip -> test.cbz.zip
@@ -135,6 +188,7 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                             pagesAllDone = pagesBefore + d
                         }
                     } ?: throw IllegalStateException("Не открылся выходной файл")
+                    } // else: Загрузки через MediaStore
                     fileTimes.add(System.currentTimeMillis() - t0)
                     filesDone = fi + 1
                     pagesBefore += f.pages
@@ -150,7 +204,7 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
             }
             withContext(Dispatchers.Main) {
                 if (!cancelled.get() && failed.isEmpty() && filesDone == totalFiles) {
-                    status = "Готово: файлов $totalFiles в Загрузках."
+                    status = "Готово: файлов $totalFiles в папке «$outputLabel»."
                     files.clear()
                     doneUris.clear()
                 } else if (!cancelled.get()) {

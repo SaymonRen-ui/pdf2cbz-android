@@ -9,4 +9,9 @@ class SettingsStore(ctx: Context) {
     var theme: Int
         get() = prefs.getInt("theme", 0)
         set(v) { prefs.edit().putInt("theme", v).apply() }
+
+    /** Выбранная папка вывода (SAF tree URI). null — Загрузки по умолчанию. */
+    var outputDir: String?
+        get() = prefs.getString("output_dir", null)
+        set(v) { prefs.edit().putString("output_dir", v).apply() }
 }

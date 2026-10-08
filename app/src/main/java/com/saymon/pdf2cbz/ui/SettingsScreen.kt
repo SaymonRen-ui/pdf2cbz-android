@@ -1,5 +1,7 @@
 package com.saymon.pdf2cbz.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,10 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** Настройки: пока только тема. */
+/** Настройки: тема и папка для готовых .cbz. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(vm: ConvertViewModel, onBack: () -> Unit) {
+    val pickDir = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> if (uri != null) vm.setOutputDir(uri) }
+
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
@@ -66,8 +73,23 @@ fun SettingsScreen(vm: ConvertViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            Spacer(Modifier.height(24.dp))
-            Text("PDF2CBZ 1.0.0 · файлы сохраняются в Загрузки",
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Папка для готовых .cbz",
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(vm.outputLabel,
+                        color = MaterialTheme.colorScheme.primary)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { pickDir.launch(null) },
+                            enabled = !vm.running) { Text("Выбрать") }
+                        TextButton(onClick = { vm.clearOutputDir() },
+                            enabled = !vm.running) { Text("По умолчанию") }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("PDF2CBZ 1.0.0 · конвертер PDF в CBZ для читалок",
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

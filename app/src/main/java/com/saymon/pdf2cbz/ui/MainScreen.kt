@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -84,14 +85,16 @@ fun MainScreen(vm: ConvertViewModel) {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { pick.launch(arrayOf("application/pdf")) },
-                            enabled = !vm.running) {
+                            enabled = !vm.running,
+                            contentPadding = PaddingValues(horizontal = 14.dp)) {
                             Icon(Icons.Filled.Add, contentDescription = null)
                             Spacer(Modifier.size(4.dp))
-                            Text("PDF")
+                            Text("PDF", maxLines = 1)
                         }
                         OutlinedButton(onClick = { vm.clearAll() },
-                            enabled = !vm.running && vm.files.isNotEmpty()) {
-                            Text("Очистить")
+                            enabled = !vm.running && vm.files.isNotEmpty(),
+                            contentPadding = PaddingValues(horizontal = 14.dp)) {
+                            Text("Очистить", maxLines = 1)
                         }
                     }
                 }
@@ -107,7 +110,7 @@ fun MainScreen(vm: ConvertViewModel) {
                     Spacer(Modifier.height(8.dp))
                     Text("Пока пусто",
                         style = MaterialTheme.typography.titleMedium)
-                    Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz лягут в Загрузки.",
+                    Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz сохраняются в выбранную папку.",
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -192,8 +195,10 @@ fun MainScreen(vm: ConvertViewModel) {
                 Button(onClick = { vm.start() },
                     enabled = vm.files.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()) {
-                    Text("Конвертировать в CBZ (в Загрузки)")
+                    Text("Конвертировать в CBZ")
                 }
+                Text("Папка: ${vm.outputLabel}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(vm.status)
         }
