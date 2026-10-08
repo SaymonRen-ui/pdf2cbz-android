@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -86,6 +87,8 @@ private fun Root() {
         }
     }
     Pdf2CbzTheme(darkTheme = dark) {
+        // Системный жест «назад» в настройках — на главный экран, а не из приложения
+        BackHandler(enabled = vm.showSettings) { vm.showSettings = false }
         if (vm.showSettings) SettingsScreen(vm) { vm.showSettings = false }
         else MainScreen(vm)
     }
