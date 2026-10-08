@@ -1,5 +1,6 @@
 package com.saymon.pdf2cbz.ui
 
+import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -38,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
@@ -66,7 +70,8 @@ fun MainScreen(vm: ConvertViewModel) {
     // Пока идёт конвертация — не гасить экран
     val view = LocalView.current
     LaunchedEffect(vm.running) { view.keepScreenOn = vm.running }
-    val totalPages = vm.files.sumOf { it.pages }
+    val landscape = LocalConfiguration.current.orientation ==
+        Configuration.ORIENTATION_LANDSCAPE
 
     Scaffold(
         // Контент внутри безопасной зоны: кнопки не уползут под навигацию
@@ -82,139 +87,179 @@ fun MainScreen(vm: ConvertViewModel) {
             )
         }
     ) { pad ->
-        Column(
-            Modifier.fillMaxSize().padding(pad).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Сводка очереди
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Файлов: ${vm.files.size}",
-                            style = MaterialTheme.typography.titleMedium)
-                        Text("Страниц всего: $totalPages",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { pick.launch(arrayOf("application/pdf")) },
-                            enabled = !vm.running,
-                            contentPadding = PaddingValues(horizontal = 14.dp)) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Spacer(Modifier.size(4.dp))
-                            Text("PDF", maxLines = 1)
-                        }
-                        OutlinedButton(onClick = { vm.clearAll() },
-                            enabled = !vm.running && vm.files.isNotEmpty(),
-                            contentPadding = PaddingValues(horizontal = 14.dp)) {
-                            Text("Очистить", maxLines = 1)
-                        }
-                    }
+        if (landscape) {
+            // Альбом: слева файлы, справа параметры и действия
+            Row(Modifier.fillMaxSize().padding(pad).padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f).fillMaxSize()) {
+                    SummaryCard(vm, pick)
+                    Spacer(Modifier.height(8.dp))
+                    FileList(vm, Modifier.weight(1f))
+                }
+                Column(Modifier.weight(1f).fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ParamsCard(vm)
+                    ActionBlock(vm)
                 }
             }
-            if (vm.files.isEmpty() && !vm.running) {
-                // Пустое состояние вместо дыры
-                Column(Modifier.fillMaxWidth().weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center) {
-                    Icon(Icons.Filled.Info, contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.surfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Пока пусто",
-                        style = MaterialTheme.typography.titleMedium)
-                    Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz сохраняются в выбранную папку.",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column(
+                Modifier.fillMaxSize().padding(pad).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SummaryCard(vm, pick)
+                FileList(vm, Modifier.weight(1f))
+                ParamsCard(vm)
+                ActionBlock(vm)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(
+    vm: ConvertViewModel,
+    pick: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+) {
+    val totalPages = vm.files.sumOf { it.pages }
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Файлов: ${vm.files.size}",
+                    style = MaterialTheme.typography.titleMedium)
+                Text("Страниц всего: $totalPages",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { pick.launch(arrayOf("application/pdf")) },
+                    enabled = !vm.running,
+                    contentPadding = PaddingValues(horizontal = 14.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(Modifier.size(4.dp))
+                    Text("PDF", maxLines = 1)
                 }
-            } else {
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(vm.files, key = { it.uri.toString() }) { f ->
-                        val key = f.uri.toString()
-                        Card(Modifier.fillMaxWidth()) {
-                            Row(Modifier.fillMaxWidth().padding(10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(f.name)
-                                    val sub = when {
-                                        vm.failed.containsKey(key) ->
-                                            "✗ ${vm.failed[key]}"
-                                        vm.doneUris.contains(key) -> "✓ готов"
-                                        vm.running && vm.curFile == f.name ->
-                                            "… ${vm.fileDone}/${vm.fileTotal}"
-                                        else -> "стр. ${f.pages}"
-                                    }
-                                    Text(sub, color = when {
-                                        vm.failed.containsKey(key) ->
-                                            MaterialTheme.colorScheme.error
-                                        vm.doneUris.contains(key) ->
-                                            MaterialTheme.colorScheme.primary
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    })
-                                }
-                                if (!vm.running) {
-                                    IconButton(onClick = { vm.removeFile(f) }) {
-                                        Icon(Icons.Filled.Close,
-                                            contentDescription = "Убрать")
-                                    }
-                                }
+                OutlinedButton(onClick = { vm.clearAll() },
+                    enabled = !vm.running && vm.files.isNotEmpty(),
+                    contentPadding = PaddingValues(horizontal = 14.dp)) {
+                    Text("Очистить", maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileList(vm: ConvertViewModel, modifier: Modifier = Modifier) {
+    if (vm.files.isEmpty() && !vm.running) {
+        // Пустое состояние вместо дыры
+        Column(modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center) {
+            Icon(Icons.Filled.Info, contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.surfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Text("Пока пусто",
+                style = MaterialTheme.typography.titleMedium)
+            Text("Нажмите «+ PDF» и выберите файлы.\nГотовые .cbz сохраняются в выбранную папку.",
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
+        LazyColumn(modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(vm.files, key = { it.uri.toString() }) { f ->
+                val key = f.uri.toString()
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(f.name)
+                            val sub = when {
+                                vm.failed.containsKey(key) ->
+                                    "✗ ${vm.failed[key]}"
+                                vm.doneUris.contains(key) -> "✓ готов"
+                                vm.running && vm.curFile == f.name ->
+                                    "… ${vm.fileDone}/${vm.fileTotal}"
+                                else -> "стр. ${f.pages}"
+                            }
+                            Text(sub, color = when {
+                                vm.failed.containsKey(key) ->
+                                    MaterialTheme.colorScheme.error
+                                vm.doneUris.contains(key) ->
+                                    MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            })
+                        }
+                        if (!vm.running) {
+                            IconButton(onClick = { vm.removeFile(f) }) {
+                                Icon(Icons.Filled.Close,
+                                    contentDescription = "Убрать")
                             }
                         }
                     }
                 }
             }
-            // Параметры — одной карточкой
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Качество JPEG: ${vm.quality}",
-                        style = MaterialTheme.typography.titleSmall)
-                    Slider(
-                        value = vm.quality.toFloat(),
-                        onValueChange = { vm.quality = it.toInt() },
-                        valueRange = 1f..100f, enabled = !vm.running)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text("DPI:", fontSize = 15.sp)
-                        for (d in listOf(100, 150, 200, 300)) {
-                            FilterChip(selected = vm.dpi == d,
-                                onClick = { vm.dpi = d },
-                                enabled = !vm.running, label = { Text("$d") })
-                        }
-                    }
-                }
-            }
-            if (vm.running) {
-                // Общий прогресс по всем страницам очереди
-                LinearProgressIndicator(
-                    progress = {
-                        if (vm.pagesAllTotal > 0)
-                            vm.pagesAllDone.toFloat() / vm.pagesAllTotal else 0f
-                    },
-                    modifier = Modifier.fillMaxWidth())
-                Text("Всего: ${vm.pagesAllDone}/${vm.pagesAllTotal} стр. · " +
-                    "файлов ${vm.filesDone}/${vm.files.size}")
-                Text(vm.curFile)
-                LinearProgressIndicator(
-                    progress = { if (vm.fileTotal > 0) vm.fileDone.toFloat() / vm.fileTotal else 0f },
-                    modifier = Modifier.fillMaxWidth())
-                Text("${vm.fileDone}/${vm.fileTotal} стр. текущего файла")
-                Button(onClick = { vm.cancel() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("✖ Отмена")
-                }
-            } else {
-                Button(onClick = { vm.start() },
-                    enabled = vm.files.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("Конвертировать в CBZ")
-                }
-                Text("Папка: ${vm.outputLabel}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(vm.status)
         }
     }
+}
+
+@Composable
+private fun ParamsCard(vm: ConvertViewModel) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Качество JPEG: ${vm.quality}",
+                style = MaterialTheme.typography.titleSmall)
+            Slider(
+                value = vm.quality.toFloat(),
+                onValueChange = { vm.quality = it.toInt() },
+                valueRange = 1f..100f, enabled = !vm.running)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("DPI:", fontSize = 15.sp)
+                for (d in listOf(100, 150, 200, 300)) {
+                    FilterChip(selected = vm.dpi == d,
+                        onClick = { vm.dpi = d },
+                        enabled = !vm.running, label = { Text("$d") })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionBlock(vm: ConvertViewModel) {
+    if (vm.running) {
+        // Общий прогресс по всем страницам очереди
+        LinearProgressIndicator(
+            progress = {
+                if (vm.pagesAllTotal > 0)
+                    vm.pagesAllDone.toFloat() / vm.pagesAllTotal else 0f
+            },
+            modifier = Modifier.fillMaxWidth())
+        Text("Всего: ${vm.pagesAllDone}/${vm.pagesAllTotal} стр. · " +
+            "файлов ${vm.filesDone}/${vm.files.size}")
+        Text(vm.curFile)
+        LinearProgressIndicator(
+            progress = { if (vm.fileTotal > 0) vm.fileDone.toFloat() / vm.fileTotal else 0f },
+            modifier = Modifier.fillMaxWidth())
+        Text("${vm.fileDone}/${vm.fileTotal} стр. текущего файла")
+        Button(onClick = { vm.cancel() }, modifier = Modifier.fillMaxWidth()) {
+            Text("✖ Отмена")
+        }
+    } else {
+        Button(onClick = { vm.start() },
+            enabled = vm.files.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()) {
+            Text("Конвертировать в CBZ")
+        }
+        Text("Папка: ${vm.outputLabel}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Text(vm.status)
 }
