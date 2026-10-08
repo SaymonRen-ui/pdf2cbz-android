@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.saymon.pdf2cbz.core.ads.AdManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -247,6 +248,7 @@ private fun ParamsCard(vm: ConvertViewModel) {
 
 @Composable
 private fun ActionBlock(vm: ConvertViewModel) {
+    val context = LocalContext.current
     if (vm.running) {
         // Общий прогресс по всем страницам очереди
         LinearProgressIndicator(
@@ -266,7 +268,12 @@ private fun ActionBlock(vm: ConvertViewModel) {
             Text("✖ Отмена")
         }
     } else {
-        Button(onClick = { vm.start() },
+        // Реклама РСЯ + конвертация параллельно (как в PDFcon)
+        Button(onClick = {
+            val activity = context as? android.app.Activity
+            if (activity != null) AdManager.showAndConvert(activity, vm::start)
+            else vm.start()
+        },
             enabled = vm.files.isNotEmpty(),
             modifier = Modifier.fillMaxWidth()) {
             Text("Конвертировать в CBZ")
