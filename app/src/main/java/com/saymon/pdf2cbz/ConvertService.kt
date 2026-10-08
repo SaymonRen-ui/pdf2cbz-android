@@ -22,13 +22,14 @@ class ConvertService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                startForeground(NOTIF_ID, buildNotif("Готовимся…", 0, 0))
+                startForeground(NOTIF_ID, buildNotif("", "Готовимся…", 0, 0))
             }
             ACTION_UPDATE -> {
                 val done = intent.getIntExtra(EXTRA_DONE, 0)
                 val total = intent.getIntExtra(EXTRA_TOTAL, 0)
-                val text = intent.getStringExtra(EXTRA_TEXT) ?: ""
-                nm().notify(NOTIF_ID, buildNotif(text, done, total))
+                val title = intent.getStringExtra(EXTRA_TEXT) ?: ""
+                val sub = intent.getStringExtra(EXTRA_SUB) ?: ""
+                nm().notify(NOTIF_ID, buildNotif(title, sub, done, total))
             }
             ACTION_CANCEL -> {
                 ConvertControl.cancelled.set(true)
@@ -55,16 +56,18 @@ class ConvertService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    private fun buildNotif(text: String, done: Int, total: Int): Notification {
+    private fun buildNotif(title: String, sub: String, done: Int, total: Int): Notification {
         channel()
         val open = PendingIntent.getActivity(
             this, 0,
             packageManager.getLaunchIntentForPackage(packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val head = if (title.isEmpty()) "PDF2CBZ: конвертация" else title
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("PDF2CBZ: конвертация")
-            .setContentText(text)
+            .setContentTitle(head)
+            .setContentText(sub)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(sub))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -82,16 +85,19 @@ class ConvertService : Service() {
         const val EXTRA_DONE = "done"
         const val EXTRA_TOTAL = "total"
         const val EXTRA_TEXT = "text"
+        const val EXTRA_SUB = "sub"
         const val CHANNEL = "convert"
         const val NOTIF_ID = 41
 
         fun cmd(ctx: Context, action: String,
-                done: Int = 0, total: Int = 0, text: String = "") {
+                done: Int = 0, total: Int = 0,
+                text: String = "", sub: String = "") {
             val i = Intent(ctx, ConvertService::class.java)
                 .setAction(action)
                 .putExtra(EXTRA_DONE, done)
                 .putExtra(EXTRA_TOTAL, total)
                 .putExtra(EXTRA_TEXT, text)
+                .putExtra(EXTRA_SUB, sub)
             ctx.startForegroundService(i)
         }
     }

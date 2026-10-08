@@ -147,6 +147,10 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                 curFile = f.name
                 fileDone = 0
                 fileTotal = f.pages
+                // Имя файла — сразу, не дожидаясь 5-й страницы
+                ConvertService.cmd(ctx, ConvertService.ACTION_UPDATE,
+                    pagesAllDone, pagesAllTotal, f.name,
+                    "Файл ${fi + 1}/$totalFiles")
                 val t0 = System.currentTimeMillis()
                 try {
                     val stem = f.name.removeSuffix(".pdf").removeSuffix(".PDF")
@@ -164,6 +168,11 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                                 fileDone = d
                                 fileTotal = t
                                 pagesAllDone = pagesBefore + d
+                                if (pagesAllDone % 5 == 0 || d == t) {
+                                    ConvertService.cmd(ctx, ConvertService.ACTION_UPDATE,
+                                        pagesAllDone, pagesAllTotal, f.name,
+                                        "Файл ${fi + 1}/$totalFiles — стр. $d/$t")
+                                }
                             }
                         } ?: throw IllegalStateException("Не открылся выходной файл")
                     } else {
@@ -190,7 +199,8 @@ class ConvertViewModel(app: Application) : AndroidViewModel(app) {
                             // Шторку дёргаем не чаще, чем раз в 5 страниц
                             if (pagesAllDone % 5 == 0 || d == t) {
                                 ConvertService.cmd(ctx, ConvertService.ACTION_UPDATE,
-                                    pagesAllDone, pagesAllTotal, f.name)
+                                    pagesAllDone, pagesAllTotal, f.name,
+                                    "Файл ${fi + 1}/$totalFiles — стр. $d/$t")
                             }
                         }
                     } ?: throw IllegalStateException("Не открылся выходной файл")
