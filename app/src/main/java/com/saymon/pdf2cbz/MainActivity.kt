@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.saymon.pdf2cbz.core.ads.AdManager
 import com.saymon.pdf2cbz.ui.ConvertViewModel
 import com.saymon.pdf2cbz.ui.MainScreen
 import com.saymon.pdf2cbz.ui.SettingsScreen
@@ -31,14 +30,6 @@ class MainActivity : ComponentActivity() {
         // Android 15 + targetSdk 35+: приложение рисуется под системные
         // панели, отступы и цвета иконок панелей разруливаем сами
         enableEdgeToEdge()
-        // SDK рекламы: грузим interstitial только после готовности SDK,
-        // иначе запрос улетает в пустоту с network error
-        try {
-            com.yandex.mobile.ads.common.MobileAds.initialize(this) {
-                AdManager.preload(this)
-            }
-        } catch (_: Exception) {
-        }
         vm = ViewModelProvider(
             this,
             ViewModelProvider.AndroidViewModelFactory.getInstance(application)

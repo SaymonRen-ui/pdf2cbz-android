@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.saymon.pdf2cbz"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -16,9 +18,25 @@ android {
         versionName = "1.0.0"
     }
 
+    // Релизная подпись из local.properties (файл + .jks не коммитятся, бэкап обязателен)
+    val keystoreProps = Properties()
+    val localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        localPropsFile.inputStream().use { keystoreProps.load(it) }
+    }
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProps.getProperty("release.keyAlias", "pdf2cbz")
+            keyPassword = keystoreProps.getProperty("release.keyPassword", "")
+            storeFile = rootProject.file(keystoreProps.getProperty("release.storeFile", "pdf2cbz-release.jks"))
+            storePassword = keystoreProps.getProperty("release.storePassword", "")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
