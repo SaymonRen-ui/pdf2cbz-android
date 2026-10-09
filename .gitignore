@@ -13,6 +13,8 @@ local.properties
 pepk.jar
 pepk_out.zip
 upload_cert.pem
+# Внутренняя передача дел — не для публичного репозитория
+HANDOFF.md
 
 # IDE
 .idea/
