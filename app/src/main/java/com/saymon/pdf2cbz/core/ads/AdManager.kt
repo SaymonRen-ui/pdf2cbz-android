@@ -18,10 +18,10 @@ import com.yandex.mobile.ads.interstitial.InterstitialAdLoader
  */
 object AdManager {
 
-    // TODO: заменить на настоящий ID блока из кабинета РСЯ
-    // (Реклама → Приложения → PDF2CBZ → Блоки → Межстраничная реклама).
-    // Сейчас тестовый: всегда возвращает тестовое объявление.
-    const val AD_UNIT_ID = "demo-interstitial-yandex"
+    // Боевой ID блока РСЯ (Реклама → Приложения → PDF2CBZ → Блоки).
+    // Пока приложение не прошло модерацию РСЯ — сервер отдаёт
+    // тестовые заглушки, после — настоящую рекламу. Код менять не надо.
+    const val AD_UNIT_ID = "R-M-20206448-1"
 
     private var loader: InterstitialAdLoader? = null
     private var ad: InterstitialAd? = null
