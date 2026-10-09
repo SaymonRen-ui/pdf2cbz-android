@@ -1,5 +1,8 @@
 package com.saymon.pdf2cbz.ui
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,8 +32,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /** Настройки: тема и папка для готовых .cbz. */
@@ -92,7 +98,70 @@ fun SettingsScreen(vm: ConvertViewModel, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text("PDF2CBZ 1.0.0 · конвертер PDF в CBZ для читалок",
+            AboutCard()
+        }
+    }
+}
+
+/** О приложении: версия, ссылки, лицензии. */
+@Composable
+private fun AboutCard() {
+    val context = LocalContext.current
+    val version = remember {
+        try {
+            val pm = context.packageManager
+            @Suppress("DEPRECATION")
+            val info = if (Build.VERSION.SDK_INT >= 33) {
+                pm.getPackageInfo(context.packageName,
+                    PackageManager.PackageInfoFlags.of(0))
+            } else {
+                pm.getPackageInfo(context.packageName, 0)
+            }
+            info.versionName ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+    fun openUrl(url: String) {
+        try {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (_: Exception) {
+        }
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("О приложении",
+                style = MaterialTheme.typography.titleMedium)
+            Text(if (version.isNotEmpty()) "PDF2CBZ $version · конвертер PDF в CBZ для читалок"
+                else "PDF2CBZ · конвертер PDF в CBZ для читалок",
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { openUrl(
+                "https://github.com/SaymonRen-ui/pdf2cbz-android/blob/main/PRIVACY.md") },
+                modifier = Modifier.fillMaxWidth()) {
+                Text("Политика конфиденциальности")
+            }
+            OutlinedButton(onClick = { openUrl(
+                "https://github.com/SaymonRen-ui/pdf2cbz-android") },
+                modifier = Modifier.fillMaxWidth()) {
+                Text("Исходный код на GitHub")
+            }
+            OutlinedButton(onClick = {
+                try {
+                    context.startActivity(
+                        Intent(Intent.ACTION_SENDTO,
+                            android.net.Uri.parse("mailto:app.project@bk.ru")).apply {
+                            putExtra(Intent.EXTRA_SUBJECT, "PDF2CBZ")
+                        })
+                } catch (_: Exception) {
+                }
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text("Написать в поддержку")
+            }
+            Text("AndroidX, Jetpack Compose — Apache 2.0. " +
+                "Yandex Mobile Ads SDK — проприетарный SDK Яндекса для показа рекламы.",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
