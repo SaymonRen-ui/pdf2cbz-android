@@ -9,6 +9,10 @@ local.properties
 # Релизный ключ подписи — НИКОГДА не коммитить, хранить бэкап отдельно!
 *.jks
 *.keystore
+# Артефакты подписи для сторов (зашифрованный ключ, инструмент PEPK)
+pepk.jar
+pepk_out.zip
+upload_cert.pem
 
 # IDE
 .idea/
